@@ -10,7 +10,7 @@ function generateSpotifyAuthUrl() {
     client_id: SPOTIFY_CLIENT_ID,
     response_type: "token",
     redirect_uri: location.protocol + "//" + location.host + location.pathname,
-    show_dialog: "true",
+    // show_dialog: "true",
     scope:
       "user-read-playback-state user-read-currently-playing user-modify-playback-state",
   });
@@ -23,34 +23,37 @@ function getAccessTokenFromURL() {
   return hashParams.get("access_token");
 }
 
-function spotifyAPI(endpoint, method, params, accessToken) {
-  const url = `https://api.spotify.com/v1${endpoint}`;
+function spotifyAPI(endpoint, method, params, body, accessToken) {
+  let url = `https://api.spotify.com/v1${endpoint}`;
+
+  if (params) {
+    const queryString = new URLSearchParams(params);
+    url = `${url}?${queryString}`;
+  }
+
   return fetch(url, {
     method,
-    body: JSON.stringify(params),
+    body: method !== "GET" ? JSON.stringify(body) : undefined,
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: "application/json",
       "Content-Type": "application/json",
     },
-  })
-    .then((r) => r.text())
-    .catch((e) => console.error("Spotify API Error:", e));
+  }).catch((e) => console.error("Spotify API Error:", { url }, e));
 }
 
 function App() {
   const [spotifyAccessToken, setSpotifyAccessToken] = useState(null);
-  useEffect(() => {
-    const accessToken = getAccessTokenFromURL();
-    if (accessToken) {
-      setSpotifyAccessToken(accessToken);
-      window.location.hash = "";
-    }
-  }, []);
+  const [devices, setDevices] = useState([]);
+  const [deviceId, setDeviceId] = useState(null);
+
   function playTrack(trackOffset) {
     spotifyAPI(
       "/me/player/play",
       "PUT",
+      {
+        device_id: deviceId,
+      },
       {
         context_uri: FFVII_REMAKE_ALBUM_ID,
         offset: {
@@ -59,22 +62,57 @@ function App() {
         position_ms: 0,
       },
       spotifyAccessToken
-    ).then((data) => console.log(data));
+    );
   }
+
+  function getDevices() {
+    spotifyAPI("/me/player/devices", "GET", null, null, spotifyAccessToken)
+      .then((res) => res.json())
+      .then((data) => {
+        setDevices(data.devices);
+        setDeviceId(data.devices[0].id);
+        console.table(data.devices);
+      });
+  }
+
+  useEffect(() => {
+    const accessToken = getAccessTokenFromURL();
+    if (accessToken) {
+      setSpotifyAccessToken(accessToken);
+      // window.location.hash = "";
+    }
+  }, []);
+
+  useEffect(() => {
+    if (spotifyAccessToken) {
+      getDevices();
+    }
+  }, [spotifyAccessToken]);
+
   return (
     <div className="">
       <a
         href={generateSpotifyAuthUrl()}
-        className="inline-block p-3 px-6 m-10 text-white uppercase text-2xl bg-green-500"
+        className="inline-block p-3 px-6 m-10 mb-0 text-white uppercase text-2xl bg-green-500"
       >
         {spotifyAccessToken ? "Refresh Spotify Access" : "Login with Spotify"}
       </a>
+      {devices.length > 0 && deviceId && (
+        <select value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>
+          {devices.map((device) => (
+            <option key={device.id} value={device.id}>
+              {device.name}
+            </option>
+          ))}
+        </select>
+      )}
       {spotifyAccessToken && (
         <ol className="p-6">
           {songs.map((song, index) => (
             <li
+              key={song.title}
               className={`text-gray-900 ${
-                song.trackNumber === 1 ? "mt-10" : ""
+                song.trackNumber === 1 ? "mt-3 pt-3 border-t-2" : ""
               }`}
             >
               <button
