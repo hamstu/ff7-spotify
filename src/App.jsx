@@ -79,7 +79,7 @@ function App() {
     const accessToken = getAccessTokenFromURL();
     if (accessToken) {
       setSpotifyAccessToken(accessToken);
-      // window.location.hash = "";
+      window.location.hash = "";
     }
   }, []);
 
