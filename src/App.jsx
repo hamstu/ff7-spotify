@@ -9,7 +9,7 @@ function generateSpotifyAuthUrl() {
   const params = new URLSearchParams({
     client_id: SPOTIFY_CLIENT_ID,
     response_type: "token",
-    redirect_uri: "http://localhost:3000",
+    redirect_uri: location.protocol + "//" + location.host + location.pathname,
     show_dialog: "true",
     scope:
       "user-read-playback-state user-read-currently-playing user-modify-playback-state",
